@@ -1,19 +1,20 @@
 #!/bin/sh
+source backup_vm.conf
 
 export PATH=/bin:/sbin
 
-echo "" > /vmfs/volumes/bacula-vmdk/`hostname`.lock
-cat /vmfs/volumes/bacula-vmdk/`hostname`.conf | while read vma ; do
+echo "" > $lock_file
+cat $config_file | while read vma ; do
     date
  
-    if [ ! -d "/vmfs/volumes/bacula-vmdk/`hostname`/old" ] 
+    if [ ! -d $temp_dir ] 
         then 
             echo "creation dossier old" 
-            mkdir /vmfs/volumes/bacula-vmdk/`hostname`/old
+            mkdir $temp_dir
     fi
   
     echo "deplacement des anciens snapshot dans le dossier old"
-    mv /vmfs/volumes/bacula-vmdk/`hostname`/$vma* /vmfs/volumes/bacula-vmdk/`hostname`/old/ 
+    mv $snapshot_dir/$vma* $temp_dir 
     
     #cherche l'id de la VM
     vmid=$(vim-cmd vmsvc/getallvms | grep $vma | awk '{print $1'})
@@ -33,7 +34,7 @@ cat /vmfs/volumes/bacula-vmdk/`hostname`.conf | while read vma ; do
     echo "le snapshot a ete cree"
 
     echo "debut clone du vmdk"
-    vmkfstools -i $vmdk /vmfs/volumes/bacula-vmdk/`hostname`/$vma-$dateheure.vmdk
+    vmkfstools -i $vmdk $snapshot_dir/$vma-$dateheure.vmdk
     echo "fin du clone du vmdk"
 
     echo "remove all snapshot"
@@ -41,12 +42,12 @@ cat /vmfs/volumes/bacula-vmdk/`hostname`.conf | while read vma ; do
     echo "les snapashots de la VM $vma ont ete supprime"
     
  
-    vmdksnapshot="/vmfs/volumes/bacula-vmdk/`hostname`/$vma-$dateheure-flat.vmdk"
-    vmdkSize=$( du -k "$vmdksnapshot" | sed 's/[[:blank:]].*$//'  )
-    if [ $vmdkSize -gt 8589934592 ]
+    vmdksnapshot="$snapshot_dir/$vma-$dateheure-flat.vmdk"
+    vmdkSize=$( du -m "$vmdksnapshot" | sed 's/[[:blank:]].*$//'  )
+    if [ $vmdkSize -gt 1024 ]
        then
           echo "suppression du dernier snapshot" 
-          rm /vmfs/volumes/bacula-vmdk/`hostname`/old/$vma*
+          rm $temp_dir/$vma*
     fi
  
     date
